@@ -1,0 +1,148 @@
+import sys
+import time
+import csv
+from scipy.spatial import KDTree, cKDTree
+from bokeh.plotting import *
+
+def loadRoadNetworkIntersections(filename):
+    #bbox around Manhattan
+    latBounds = [40.6,40.9]
+    lngBounds = [-74.05,-73.90]
+    #
+    listWithIntersectionCoordinates = []
+    f = open(filename)
+    reader = csv.reader(f, delimiter=' ')
+    for l in reader:
+        try:
+            point = [float(l[0]),float(l[1])]
+            if latBounds[0] <= point[0] <= latBounds[1] and lngBounds[0] <= point[1] <= lngBounds[1]:
+                listWithIntersectionCoordinates.append(point)
+        except:
+            print l
+
+    return listWithIntersectionCoordinates
+
+def loadTaxiTrips(filename):
+    #load pickup positions
+    loadPickup = True
+    #bbox around Manhattan
+    latBounds = [40.6,40.9]
+    lngBounds = [-74.05,-73.90]
+    #
+    f = open(filename)
+    reader = csv.reader(f)
+    header = reader.next()
+    #
+    if loadPickup:        
+        lngIndex = header.index(' pickup_longitude')
+        latIndex = header.index(' pickup_latitude')
+    else:
+        latIndex = header.index(' dropoff_latitude')
+        lngIndex = header.index(' dropoff_longitude')
+    result = []
+    for l in reader:
+        try:
+            point = [float(l[latIndex]),float(l[lngIndex])]
+            if latBounds[0] <= point[0] <= latBounds[1] and lngBounds[0] <= point[1] <= lngBounds[1]:
+                result.append(point)
+
+        except:
+            print l
+    return result
+    
+def naiveApproach(intersections, tripLocations):
+    #counts is a dictionary that has as keys the intersection index in the intersections list
+    #and as values the number of trips in the tripLocation list which has the key as the closest
+    #intersection.
+    counts = {}
+    startTime = time.time()
+
+    #TODO: insert your code here. You should implement the naive approach, i.e., loop 
+    #      through all the trips and find the closest intersection by looping through
+    #      all of them
+
+    dis_min = 10000000000000000
+
+    for row in tripLocations:
+        llat = float(row[0])
+        llng = float(row[1])
+
+        for item in intersections:
+            ilat = float(item[0])
+            ilng = float(item[1])
+
+            distance = (ilat-llat)**2+(ilng-llng)**2
+            if distance < dis_min:
+                dis = distance
+
+        idx = intersections.index(item)
+        if idx in counts:
+            counts[idx] += 1
+        else:
+            counts[idx] = 1
+    #
+    
+    endTime = time.time()
+    print 'The naive computation took', (endTime - startTime), 'seconds'
+    return counts
+
+def kdtreeApproach(intersections, tripLocations):
+    #counts is a dictionary that has as keys the intersection index in the intersections list
+    #and as values the number of trips in the tripLocation list which has the key as the closest
+    #intersection.
+    counts = {}
+    startTime = time.time()
+
+    #TODO: insert your code here. You should build the kdtree and use it to query the closest
+    #      intersection for each trip
+    intersections = KDTree(intersections)
+    idx_start =intersections.query(tripLocations)
+    for item in idx_start[1]:
+        if item in counts:
+            counts[item] +=1
+        else:
+            counts[item] = 1
+    #
+    endTime = time.time()
+    print 'The kdtree computation took', (endTime - startTime), 'seconds'
+    return counts
+
+def plotResults(intersections, counts):
+    #TODO: intersect the code to plot here
+    lat_list = []
+    lng_list = []
+    count_num = []
+    r_list = []
+
+    for item in counts:
+        lat_list.append(intersections[item][0])
+        lng_list.append(intersections[item][1])
+        count_num.append(counts[item])
+        r_list.append(counts[item])
+
+    output_file("plot for problem1.html", title="Plots for problem1 ")
+
+    scatter(lng_list, lat_list, color='red',alpha = 0.5, size = r_list, fill_alpha=0.6,line_color=None, title = "Plots for problem1")
+
+    show()
+
+
+
+
+    #for i in counts:
+    print "TO DO"
+
+if __name__ == '__main__':
+    #these functions are provided and they already load the data for you
+    roadIntersections = loadRoadNetworkIntersections(sys.argv[1])
+    tripPickups       = loadTaxiTrips(sys.argv[2])
+
+    #You need to implement this one. You need to make sure that the counts are correct
+    
+    #naiveCounts = naiveApproach(roadIntersections,tripPickups)
+
+    #You need to implement this one. You need to make sure that the counts are correct
+    kdtreeCounts = kdtreeApproach(roadIntersections,tripPickups)
+
+    #
+    plotResults(roadIntersections,kdtreeCounts)
